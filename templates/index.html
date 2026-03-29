@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ EV Route Optimization & Charging Load Balancing System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        /* HEADER */
+        .header {
+            background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+            color: white;
+            padding: 25px 40px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        
+        /* MAIN CONTAINER */
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            padding: 30px 40px;
+            max-width: 1600px;
+            margin: 0 auto;
+            height: calc(100vh - 120px);
+        }
+        
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            grid-row: 1 / 3;
+        }
+        
+        .form-panel {
+            flex: 0 0 auto;
+            max-height: 45%;
+            overflow-y: auto;
+        }
+        
+        .map-panel {
+            flex: 1 1 auto;
+            min-height: 300px;
+        }
+        
+        /* PANEL STYLING */
+        .panel {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .panel-header {
+            background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+            color: white;
+            padding: 20px 25px;
+            font-size: 20px;
+            font-weight: 700;
+            border-bottom: 3px solid #e94560;
+        }
+        
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 25px;
+        }
+        
+        /* MAP PANEL */
+        #map {
+            width: 100% !important;
+            height: 100% !important;
+            border-radius: 0 0 15px 0;
+        }
+        
+        /* STATION STATUS PANEL */
+        .station-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 10px;
+            border-left: 5px solid #0f3460;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .station-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .station-card.full {
+            border-left-color: #e74c3c;
+            background: linear-gradient(135deg, #fadbd8 0%, #f5b7b1 100%);
+        }
+        
+        .station-card.recommended {
+            border-left-color: #f39c12;
+            background: linear-gradient(135deg, #fdebd0 0%, #fbd7a9 100%);
+            box-shadow: 0 0 15px rgba(243, 156, 18, 0.3);
+        }
+        
+        .station-card.recommended {
+            border-left: 5px solid #f39c12;
+            background: linear-gradient(135deg, #fffbf0 0%, #fff8e7 100%);
+            box-shadow: 0 4px 15px rgba(243, 156, 18, 0.2);
+            border: 2px solid #f39c12;
+        }
+        
+        .station-card.recommended:hover {
+            box-shadow: 0 6px 20px rgba(243, 156, 18, 0.4);
+            transform: translateY(-3px);
+        }
+        
+        .status-badge.recommended {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%) !important;
+            box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3) !important;
+        }
+        
+        .station-card.available {
+            border-left-color: #27ae60;
+            background: linear-gradient(135deg, #d5f4e6 0%, #abded5 100%);
+        }
+        
+        .station-name {
+            font-weight: 700;
+            color: #0f3460;
+            font-size: 15px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            color: white;
+        }
+        
+        .status-badge.full {
+            background: #e74c3c;
+        }
+        
+        .status-badge.recommended {
+            background: #f39c12;
+        }
+        
+        .status-badge.available {
+            background: #27ae60;
+        }
+        
+        .station-details {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            color: #555;
+        }
+        
+        .station-detail {
+            flex: 1;
+        }
+        
+        .detail-label {
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        
+        .detail-value {
+            color: #0f3460;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        
+        /* LOAD BALANCING */
+        .load-balancing {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 2px solid #ddd;
+        }
+        
+        .load-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f3460;
+            margin-bottom: 15px;
+        }
+        
+        .load-distribution {
+            display: flex;
+            gap: 15px;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+        
+        .battery-container {
+            text-align: center;
+            flex: 1;
+        }
+        
+        .battery {
+            width: 45px;
+            height: 80px;
+            border: 3px solid #333;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 0 auto 10px;
+            background: white;
+            position: relative;
+        }
+        
+        .battery::after {
+            content: '';
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 15px;
+            height: 8px;
+            background: #333;
+            border-radius: 2px 2px 0 0;
+        }
+        
+        .battery-fill {
+            width: 100%;
+            height: 100%;
+            transition: background 0.3s;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        
+        .battery-fill.low {
+            background: linear-gradient(to top, #e74c3c 0%, #e74c3c 100%);
+        }
+        
+        .battery-fill.medium {
+            background: linear-gradient(to top, #f39c12 0%, #f39c12 100%);
+        }
+        
+        .battery-fill.high {
+            background: linear-gradient(to top, #27ae60 0%, #27ae60 100%);
+        }
+        
+        .battery-label {
+            font-weight: 700;
+            color: #0f3460;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        
+        .load-status {
+            font-size: 13px;
+            font-weight: 700;
+            margin-top: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            text-align: center;
+            color: white;
+        }
+        
+        .load-status.high {
+            background: #e74c3c;
+        }
+        
+        .load-status.balanced {
+            background: #27ae60;
+        }
+        
+        .load-status.low {
+            background: #3498db;
+        }
+        
+        /* FORM PANEL */
+        .form-section {
+            margin-bottom: 20px;
+        }
+        
+        .form-section label {
+            display: block;
+            margin-bottom: 8px;
+            color: #0f3460;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        
+        .form-section input,
+        .form-section button {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+        
+        .form-section input:focus {
+            outline: none;
+            border-color: #0f3460;
+            box-shadow: 0 0 8px rgba(15, 52, 96, 0.2);
+        }
+        
+        .gps-btn {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%) !important;
+            color: white !important;
+            border: none !important;
+            font-weight: 700 !important;
+            cursor: pointer !important;
+        }
+        
+        .gps-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+        }
+        
+        .plan-btn {
+            background: linear-gradient(135deg, #e94560 0%, #c23545 100%) !important;
+            color: white !important;
+            border: none !important;
+            font-weight: 700 !important;
+            font-size: 15px !important;
+            padding: 14px !important;
+            cursor: pointer !important;
+            margin-top: 15px !important;
+        }
+        
+        .plan-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(233, 69, 96, 0.3);
+        }
+        
+        .battery-slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+            margin: 10px 0;
+        }
+        
+        .battery-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #e94560 0%, #c23545 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .battery-slider::-moz-range-thumb {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #e94560 0%, #c23545 100%);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .battery-display {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+            font-weight: 700;
+            color: #0f3460;
+        }
+        
+        .gps-status {
+            font-size: 12px;
+            color: #27ae60;
+            margin-top: 8px;
+            font-weight: 600;
+        }
+        
+        .result-box {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border-left: 5px solid #27ae60;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-weight: 600;
+            color: #1b5e20;
+        }
+        
+        .result-box.charging {
+            background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+            border-left-color: #f39c12;
+            color: #e65100;
+        }
+        
+        .place-suggestions {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            max-height: 150px;
+            overflow-y: auto;
+            position: absolute;
+            width: 100%;
+            list-style: none;
+            z-index: 10;
+            margin-top: -8px;
+        }
+        
+        .place-suggestions li {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+        }
+        
+        .place-suggestions li:hover {
+            background: #f0f0f0;
+        }
+        
+        /* SCROLLBAR */
+        .panel-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .panel-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        .panel-content::-webkit-scrollbar-thumb {
+            background: #0f3460;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <div class="header">
+        <h1>⚡ EV Route Optimization & Charging Load Balancing System</h1>
+    </div>
+    
+    <!-- MAIN CONTAINER -->
+    <div class="main-container">
+        <!-- LEFT COLUMN: FORM & MAP -->
+        <div class="left-column">
+            <!-- FORM PANEL -->
+            <div class="panel form-panel">
+                <div class="panel-header">📍 Optimal Route to Destination</div>
+                <div class="panel-content">
+                    <form method="POST" action="/route" id="routeForm">
+                        <!-- START LOCATION -->
+                        <div class="form-section" style="position: relative;">
+                            <label>Starting Location</label>
+                            <input type="text" id="start_input" name="start" placeholder="e.g., Coimbatore" required>
+                            <ul id="start_suggestions" class="place-suggestions" style="display:none;"></ul>
+                        </div>
+                        
+                        <!-- END LOCATION -->
+                        <div class="form-section" style="position: relative;">
+                            <label>Destination</label>
+                            <input type="text" id="end_input" name="end" placeholder="e.g., Hosur" required>
+                            <ul id="end_suggestions" class="place-suggestions" style="display:none;"></ul>
+                        </div>
+                        
+                        <!-- GPS BUTTON -->
+                        <button type="button" class="gps-btn">📍 Use Current Location</button>
+                        <div class="gps-status" id="gps-status"></div>
+                        
+                        <!-- BATTERY -->
+                        <div class="form-section">
+                            <label>Current Battery Level</label>
+                            <div class="battery-display">
+                                <div style="flex: 1;">
+                                    <div style="background: #ddd; height: 8px; border-radius: 5px; overflow: hidden;">
+                                        <div id="battery-fill" style="background: linear-gradient(90deg, #e94560 0%, #c23545 100%); height: 100%; width: 80%;"></div>
+                                    </div>
+                                </div>
+                                <span id="battery-percent" style="margin-left: 10px; min-width: 40px;">80%</span>
+                            </div>
+                            <input type="range" id="battery" name="battery" class="battery-slider" min="0" max="100" value="80">
+                        </div>
+                        
+                        <!-- SUBMIT -->
+                        <button type="submit" class="plan-btn">🚀 Plan Route</button>
+                    </form>
+                    
+                    <!-- ROUTE RESULT -->
+                    {% if result %}
+                        <div class="result-box {% if 'Charging' in result %}charging{% endif %}">{{ result }}</div>
+                    {% endif %}
+                    
+                    {% if route %}
+                        <script>
+                            var route = {{ route | tojson }};
+                        </script>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- MAP PANEL -->
+            <div class="panel map-panel">
+                <div class="panel-header">🗺️ Route Map</div>
+                <div id="map" style="width: 100%; height: 100%; border-radius: 0 0 15px 0;"></div>
+            </div>
+        </div>
+        
+        <!-- RIGHT TOP PANEL: STATION STATUS -->
+        <div class="panel">
+            <div class="panel-header">⚡ Charging Station Status</div>
+            <div class="panel-content" id="stations-panel">
+                <p style="text-align: center; color: #999; padding: 20px;">Loading stations...</p>
+            </div>
+        </div>
+        
+        <!-- RIGHT BOTTOM PANEL: LOAD BALANCING -->
+        <div class="panel">
+            <div class="panel-header">📊 Load Balancing</div>
+            <div class="panel-content">
+                <div class="load-balancing">
+                    <div class="load-title">Load Distribution:</div>
+                    <div class="load-distribution" id="load-distribution">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script>
+        // ========== MAP INITIALIZATION ==========
+        var map = L.map('map', {zoomControl: true}).setView([11.5, 77.5], 9);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        var stationMarkers = [];
+        var routePolyline = null;
+        var destinationMarker = null;
+        var vehicleMarker = null;
+        var sourceMarker = null;
+        
+        // ========== LOAD STATIONS ==========
+        function loadChargingStations() {
+            fetch('/get-stations')
+                .then(response => response.json())
+                .then(stations => {
+                    stationMarkers.forEach(marker => map.removeLayer(marker));
+                    stationMarkers = [];
+                    
+                    stations.forEach(function(station) {
+                        var marker = L.circleMarker(station.coords, {
+                            radius: 10,
+                            fillColor: '#27ae60',
+                            color: '#1e8449',
+                            weight: 3,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(map).bindPopup(`<strong>⚡ ${station.name}</strong><br>Slots: ${station.slots}<br>Load: ${station.load}%`);
+                        stationMarkers.push(marker);
+                    });
+                    
+                    updateStationPanel(stations);
+                    updateLoadBalancing(stations);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+        
+        // ========== UPDATE STATION PANEL ==========
+        function updateStationPanel(stations) {
+            var html = '';
+            var recommendedStation = document.getElementById('recommended-station') ? document.getElementById('recommended-station').textContent : '';
+            
+            stations.forEach(function(station, index) {
+                var status = station.slots > 0 ? 'available' : 'full';
+                var statusText = station.slots > 0 ? 'Available' : 'Full';
+                var isRecommended = recommendedStation && station.name.includes(recommendedStation.trim());
+                var cardClass = isRecommended ? 'recommended' : status;
+                
+                html += `<div class="station-card ${cardClass}" onclick="selectStation('${station.name}', ${station.slots}, ${station.load}, ${index})" style="cursor: pointer; transition: all 0.3s;">
+                    <div class="station-name">
+                        <span>⚡ ${station.name}</span>
+                        ${isRecommended ? '<span class="status-badge recommended">⭐ RECOMMENDED</span>' : '<span class="status-badge ' + status + '">' + statusText + '</span>'}
+                    </div>
+                    <div class="station-details">
+                        <div class="station-detail">
+                            <div class="detail-label">Available Slots</div>
+                            <div class="detail-value">${station.slots} Slots</div>
+                        </div>
+                        <div class="station-detail">
+                            <div class="detail-label">Load</div>
+                            <div class="detail-value">${station.load}%</div>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('stations-panel').innerHTML = html;
+        }
+        
+        // ========== UPDATE LOAD BALANCING ==========
+        function updateLoadBalancing(stations) {
+            var html = '';
+            var recommendedStation = document.getElementById('recommended-station') ? document.getElementById('recommended-station').textContent : '';
+            
+            stations.forEach(function(station, index) {
+                var load = station.load;
+                var fillClass = load > 70 ? 'high' : load > 40 ? 'medium' : 'low';
+                var status = load > 70 ? 'High' : load > 40 ? 'Balanced' : 'Low';
+                var statusClass = load > 70 ? 'high' : load > 40 ? 'balanced' : 'low';
+                var isRecommended = recommendedStation && station.name.includes(recommendedStation.trim());
+                
+                html += `<div class="battery-container" title="${station.name}" style="cursor: pointer; ${isRecommended ? 'background: #fff8e7; border: 2px solid #f39c12; border-radius: 10px; padding: 8px;' : ''}">
+                    <div style="${isRecommended ? 'font-weight: 700; color: #f39c12; margin-bottom: 5px;' : ''}">⭐ ${station.name}</div>
+                    <div class="battery">
+                        <div class="battery-fill ${fillClass}" style="height: ${load}%;"></div>
+                    </div>
+                    <div class="battery-label">Load: ${load}%</div>
+                    <div class="load-status ${statusClass}">${status}</div>
+                </div>`;
+            });
+            document.getElementById('load-distribution').innerHTML = html;
+        }
+        
+        loadChargingStations();
+        
+        // ========== AUTO-REFRESH STATIONS EVERY 30 SECONDS ==========
+        setInterval(function() {
+            console.log('🔄 Auto-refreshing station data...');
+            loadChargingStations();
+        }, 30000);
+        
+        // ========== SELECT STATION ==========
+        function selectStation(stationName, slots, load, index) {
+            var message = `📍 ${stationName}\n\n` +
+                         `Available Slots: ${slots}\n` +
+                         `Load: ${load}%\n` +
+                         `Status: ${slots > 0 ? '✅ Available' : '❌ Full'}\n\n` +
+                         `Charging Time: ~${Math.round(load * 1.5)} minutes`;
+            alert(message);
+            
+            // Highlight selected station on map (optional)
+            console.log('Selected station: ' + stationName);
+        }
+        
+        // ========== BATTERY SLIDER ==========
+        document.getElementById('battery').addEventListener('input', function() {
+            document.getElementById('battery-percent').textContent = this.value + '%';
+            document.getElementById('battery-fill').style.width = this.value + '%';
+        });
+        
+        // ========== GPS BUTTON ==========
+        document.querySelector('.gps-btn').addEventListener('click', function() {
+            var btn = this;
+            btn.disabled = true;
+            btn.textContent = '📍 Locating...';
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        var lat = position.coords.latitude;
+                        var lon = position.coords.longitude;
+                        
+                        // Center map and add marker
+                        map.setView([lat, lon], 13);
+                        if (sourceMarker) map.removeLayer(sourceMarker);
+                        sourceMarker = L.circleMarker([lat, lon], {
+                            radius: 12,
+                            fillColor: '#3498db',
+                            color: '#2980b9',
+                            weight: 3,
+                            opacity: 1,
+                            fillOpacity: 0.9
+                        }).addTo(map).bindPopup('<strong>📍 Your Location</strong>');
+                        
+                        fetch('/get-location', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({lat: lat, lon: lon})
+                        });
+                        
+                        document.getElementById('gps-status').textContent = '✅ Location acquired';
+                        btn.textContent = '📍 Use Current Location';
+                        btn.disabled = false;
+                    },
+                    function(error) {
+                        alert('❌ Unable to get location');
+                        btn.textContent = '📍 Use Current Location';
+                        btn.disabled = false;
+                    }
+                );
+            }
+        });
+        
+        // ========== FORM SUBMISSION ==========
+        document.getElementById('routeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            var start = document.getElementById('start_input').value.trim();
+            var end = document.getElementById('end_input').value.trim();
+            var battery = document.getElementById('battery').value;
+            
+            if (!start || !end) {
+                alert('❌ Please enter both locations');
+                return;
+            }
+            
+            var btn = document.querySelector('.plan-btn');
+            btn.disabled = true;
+            btn.textContent = '🔄 Planning...';
+            
+            var formData = new FormData();
+            formData.append('start', start);
+            formData.append('end', end);
+            formData.append('battery', battery);
+            
+            fetch('/route', {method: 'POST', body: formData})
+                .then(response => response.text())
+                .then(html => {
+                    // Parse response HTML
+                    var parser = new DOMParser();
+                    var newDoc = parser.parseFromString(html, 'text/html');
+                    
+                    // Update result message
+                    var resultBox = newDoc.querySelector('.result-box');
+                    var resultContainer = document.querySelector('.form-panel .panel-content');
+                    var existingResult = resultContainer.querySelector('.result-box');
+                    if (existingResult) existingResult.remove();
+                    if (resultBox) {
+                        var resultClone = resultBox.cloneNode(true);
+                        resultContainer.appendChild(resultClone);
+                        
+                        // Extract and store recommended station name for highlighting
+                        var resultText = resultBox.textContent;
+                        var stationMatch = resultText.match(/Station: (.+?)(\n|$)/);
+                        if (stationMatch) {
+                            var stationNameClean = stationMatch[1].trim();
+                            // Create hidden element to store recommended station
+                            var recommendedEl = document.createElement('div');
+                            recommendedEl.id = 'recommended-station';
+                            recommendedEl.style.display = 'none';
+                            recommendedEl.textContent = stationNameClean;
+                            resultContainer.appendChild(recommendedEl);
+                            console.log('📌 Recommended Station: ' + stationNameClean);
+                        }
+                    }
+                    
+                    // Extract route data from the response HTML script tags
+                    var route = null;
+                    var scriptNodes = newDoc.querySelectorAll('script');
+                    scriptNodes.forEach(function(script) {
+                        if (script.textContent.includes('var route =')) {
+                            var match = script.textContent.match(/var route = (\[[\s\S]*?\]);/);
+                            if (match) {
+                                try {
+                                    route = JSON.parse(match[1]);
+                                } catch(e) {
+                                    console.error('Failed to parse route:', e);
+                                }
+                            }
+                        }
+                    });
+                    
+                    // Display route on map if found
+                    if (route && route.length > 1) {
+                        // Remove old route visualization
+                        if (routePolyline) map.removeLayer(routePolyline);
+                        if (destinationMarker) map.removeLayer(destinationMarker);
+                        if (vehicleMarker) map.removeLayer(vehicleMarker);
+                        
+                        // Draw route line - bold red/orange for visibility
+                        routePolyline = L.polyline(route, {
+                            color: '#e74c3c',
+                            weight: 5,
+                            opacity: 0.85,
+                            lineCap: 'round',
+                            lineJoin: 'round'
+                        }).addTo(map);
+                        
+                        // Add destination marker - red circle
+                        destinationMarker = L.circleMarker(route[route.length - 1], {
+                            radius: 12,
+                            fillColor: '#e74c3c',
+                            color: '#c0392b',
+                            weight: 3,
+                            opacity: 1,
+                            fillOpacity: 0.9
+                        }).addTo(map).bindPopup('<strong>🎯 Destination</strong>');
+                        
+                        // Fit map to show entire route with padding
+                        var bounds = routePolyline.getBounds();
+                        map.fitBounds(bounds, {padding: [80, 80], maxZoom: 15});
+                        
+                        // Animate vehicle movement
+                        animateVehicle(route);
+                        
+                        console.log('✅ Route displayed: ' + route.length + ' waypoints');
+                    } else {
+                        console.warn('No route data found in response');
+                    }
+                    
+                    btn.disabled = false;
+                    btn.textContent = '🚀 Plan Route';
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    alert('❌ Error calculating route.\n\nTry cities like: Coimbatore, Hosur, Salem, Erode, Tiruppur');
+                    btn.disabled = false;
+                    btn.textContent = '🚀 Plan Route';
+                });
+        });
+        
+        // ========== ANIMATE VEHICLE ==========
+        function animateVehicle(route) {
+            if (!route || route.length < 2) return;
+            if (vehicleMarker) map.removeLayer(vehicleMarker);
+            
+            var carIcon = L.divIcon({
+                html: '<div style="font-size: 20px; transform: rotate(45deg); filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));">🚗</div>',
+                iconSize: [30, 30],
+                className: 'vehicle-marker'
+            });
+            
+            vehicleMarker = L.marker(route[0], {icon: carIcon}).addTo(map)
+                .bindPopup('<strong>🚗 Vehicle</strong>');
+            
+            var progress = 0;
+            function move() {
+                if (progress < route.length - 1) {
+                    vehicleMarker.setLatLng(route[progress]);
+                    progress++;
+                    setTimeout(move, 30);
+                }
+            }
+            move();
+        }
+        
+        // ========== PLACE SEARCH ==========
+        function setupPlaceSearch(inputId, suggestionsId) {
+            var inputEl = document.getElementById(inputId);
+            var suggestionsEl = document.getElementById(suggestionsId);
+            var cities = [
+                // Tamil Nadu
+                'Coimbatore', 'Chennai', 'Madurai', 'Salem', 'Tiruppur', 'Erode', 
+                'Vellore', 'Kanyakumari', 'Tirunelveli', 'Trichy', 'Nellore', 'Nagercoil',
+                // Karnataka
+                'Bangalore', 'Mysore', 'Belgaum', 'Dharwad', 'Davangere', 'Raichur', 'Gulbarga',
+                // Andhra Pradesh
+                'Hyderabad', 'Visakhapatnam', 'Tirupati', 'Vijayawada',
+                // Telangana
+                'Hyderabad',
+                // Kerala
+                'Kochi', 'Thrissur', 'Kannur', 'Kozhikode', 'Kottayam', 'Kollam',
+                // Others
+                'Hosur', 'Krishnagiri', 'Bangalore', 'Delhi', 'Pune', 'Mumbai', 'Goa'
+            ];
+            
+            inputEl.addEventListener('input', function() {
+                var query = this.value.toLowerCase();
+                if (query.length < 1) {
+                    suggestionsEl.style.display = 'none';
+                    return;
+                }
+                var filtered = cities.filter(c => c.toLowerCase().includes(query));
+                suggestionsEl.innerHTML = '';
+                filtered.forEach(place => {
+                    var li = document.createElement('li');
+                    li.textContent = place;
+                    li.onclick = () => {inputEl.value = place; suggestionsEl.style.display = 'none';};
+                    suggestionsEl.appendChild(li);
+                });
+                suggestionsEl.style.display = filtered.length > 0 ? 'block' : 'none';
+            });
+            
+            document.addEventListener('click', e => {
+                if (e.target !== inputEl) suggestionsEl.style.display = 'none';
+            });
+        }
+        
+        setupPlaceSearch('start_input', 'start_suggestions');
+        setupPlaceSearch('end_input', 'end_suggestions');
+    </script>
+</body>
+</html>
