@@ -11,9 +11,14 @@ from firebase_admin import credentials, auth, firestore
 
 # Set up Flask with correct template and static paths
 # Get the parent directory (project root)
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+app_dir = os.path.dirname(os.path.abspath(__file__))  # EV_Project directory
+base_dir = os.path.dirname(app_dir)  # Project root
 template_dir = os.path.join(base_dir, 'templates')
 static_dir = os.path.join(base_dir, 'static')
+
+print(f"Flask Paths: base_dir={base_dir}, template_dir={template_dir}, static_dir={static_dir}")
+print(f"Template exists: {os.path.exists(template_dir)}")
+print(f"Static exists: {os.path.exists(static_dir)}")
 
 app = Flask(__name__, 
     template_folder=template_dir,
