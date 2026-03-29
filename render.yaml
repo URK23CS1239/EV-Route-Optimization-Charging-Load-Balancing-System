@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: ev-route-optimization
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd EV_Project && gunicorn --workers 2 --worker-class sync --bind 0.0.0.0:$PORT app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+      - key: FLASK_ENV
+        value: production
+      - key: DEBUG
+        value: false
