@@ -3,6 +3,7 @@ from functools import wraps
 import requests
 import json
 import os
+import sys
 from datetime import datetime
 
 # Firebase Admin SDK
@@ -13,6 +14,11 @@ from firebase_admin import credentials, auth, firestore
 # Get the parent directory (project root)
 app_dir = os.path.dirname(os.path.abspath(__file__))  # EV_Project directory
 base_dir = os.path.dirname(app_dir)  # Project root
+
+# Add base_dir to sys.path so we can import logic.py from root
+if base_dir not in sys.path:
+    sys.path.insert(0, base_dir)
+
 template_dir = os.path.join(base_dir, 'templates')
 static_dir = os.path.join(base_dir, 'static')
 
