@@ -10,10 +10,17 @@ import firebase_admin
 from firebase_admin import credentials, auth, firestore
 
 # Set up Flask with correct template and static paths
+# Get the parent directory (project root)
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+template_dir = os.path.join(base_dir, 'templates')
+static_dir = os.path.join(base_dir, 'static')
+
 app = Flask(__name__, 
-    template_folder=os.path.join(os.path.dirname(__file__), '..', 'templates'),
-    static_folder=os.path.join(os.path.dirname(__file__), '..', 'static'))
-app.secret_key = 'your_secret_key_change_this'
+    template_folder=template_dir,
+    static_folder=static_dir)
+
+# Use environment variable for secret key in production, fallback to default for development
+app.secret_key = os.environ.get('SECRET_KEY', 'your_secret_key_change_this_in_production')
 
 # ========== FIREBASE SETUP ==========
 # Download your Firebase service account JSON from Firebase Console
